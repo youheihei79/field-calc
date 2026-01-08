@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>現場計算</title>
+  <link rel="stylesheet" href="styles.css" />
+  <meta name="theme-color" content="#111827" />
+
+  <!-- PWA (minimal) -->
+  <link rel="manifest" href="data:application/manifest+json,{
+    &quot;name&quot;:&quot;現場計算&quot;,
+    &quot;short_name&quot;:&quot;現場計算&quot;,
+    &quot;start_url&quot;:&quot;./&quot;,
+    &quot;display&quot;:&quot;standalone&quot;,
+    &quot;background_color&quot;:&quot;#111827&quot;,
+    &quot;theme_color&quot;:&quot;#111827&quot;,
+    &quot;icons&quot;:[]
+  }">
+</head>
+<body>
+  <header class="app-header">
+    <div class="title">
+      <div class="h1">現場計算</div>
+      <div class="sub">PWA / オフライン対応 / 履歴保存</div>
+    </div>
+    <div class="header-actions">
+      <button id="btnSettings" class="btn ghost" title="設定">⚙</button>
+    </div>
+  </header>
+
+  <main class="app">
+    <section class="panel left">
+      <div class="panel-head">
+        <input id="search" class="input" placeholder="計算を検索（例：重量 / rpm / タップ）" />
+        <button id="btnFavOnly" class="btn ghost" title="お気に入りのみ">★</button>
+      </div>
+
+      <div id="templateList" class="list"></div>
+
+      <div class="footer-note" id="offlineNote"></div>
+    </section>
+
+    <section class="panel right">
+      <div id="workArea" class="work">
+        <div class="empty">
+          <div class="empty-title">計算を選択してください</div>
+          <div class="empty-sub">左の一覧からタップで開始</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Bottom sheet: History -->
+  <div class="sheet" id="historySheet" aria-hidden="true">
+    <div class="sheet-inner">
+      <div class="sheet-head">
+        <div class="sheet-title">履歴</div>
+        <div class="sheet-actions">
+          <button id="btnClearHistory" class="btn danger">全削除</button>
+          <button id="btnCloseHistory" class="btn">閉じる</button>
+        </div>
+      </div>
+      <div id="historyList" class="history"></div>
+    </div>
+  </div>
+
+  <!-- Modal: Settings -->
+  <div class="modal" id="settingsModal" aria-hidden="true">
+    <div class="modal-inner">
+      <div class="modal-head">
+        <div class="modal-title">設定</div>
+        <button id="btnCloseSettings" class="btn">閉じる</button>
+      </div>
+
+      <div class="form">
+        <label class="row">
+          <div class="label">小数点桁数</div>
+          <select id="decimalPlaces" class="input">
+            <option value="0">0</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3" selected>3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+          </select>
+        </label>
+
+        <label class="row">
+          <div class="label">比重（材料）</div>
+          <select id="densityPreset" class="input">
+            <option value="7.85">鉄(7.85)</option>
+            <option value="7.93">SUS304(7.93)</option>
+            <option value="8.00">SUS系(8.00)</option>
+            <option value="2.70">アルミ(2.70)</option>
+            <option value="1.00">水(1.00)</option>
+          </select>
+        </label>
+
+        <div class="hint">
+          ※ 比重は重量系テンプレの初期値に使います（各テンプレで上書き可）<br>
+          ※ 履歴・前回入力は端末内(localStorage)に保存されます
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <button id="btnHistory" class="btn nav">🕘 履歴</button>
+    <button id="btnCopyResult" class="btn nav" disabled>📋 コピー</button>
+    <button id="btnShare" class="btn nav" disabled>📤 共有</button>
+  </nav>
+
+  <script src="app.js"></script>
+</body>
+</html>
