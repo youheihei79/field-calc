@@ -1,10 +1,10 @@
 {
-  "name": "現場計算",
-  "short_name": "現場計算",
+  "name": "（株）加古川製作所 計算ツール",
+  "short_name": "加古川計算",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "background_color": "#020617",
+  "theme_color": "#020617",
   "icons": [
     {
       "src": "./icon-192.png",
