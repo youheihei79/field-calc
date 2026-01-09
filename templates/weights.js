@@ -24,61 +24,89 @@ function densityFromMaterial(code) {
 export function buildWeightTemplates(settings) {
   const densityDefault = settings.densityDefault ?? 7.85;
 
-  return [
-    {
-      id: "w_roundbar",
-      group: "重量計算",
-      title: "丸棒重量（kg）",
-      desc: "φd, 長さL, 材質 → 重量",
-      tags: ["比重選択"],
-      inputs: [
-        { key: "d", label: "直径 d (mm)", hint: "例: 50" },
-        { key: "L", label: "長さ L (mm)", hint: "例: 1000" },
-        { key: "mat", type: "select", label: "材質", hint: "", default: "SS", options: materialOptions() }
-      ],
-      result: { label: "重量", unit: "kg" },
-      compute: (v) => {
-        const rho = densityFromMaterial(v.mat);
-        const volume_m3 = Math.PI * (v.d * v.d) / 4 * v.L * 1e-9;
-        const density = rho * 1000;
-        return volume_m3 * density;
-      }
-    },
+  // kg単価デフォルト
+  const yenPerKgDefault = settings.yenPerKgDefault ?? 200;
+  const yenPerKgPipeDefault = settings.yenPerKgPipeDefault ?? 350;
 
+  return [
+    // 板
     {
       id: "w_plate",
       group: "重量計算",
       title: "板重量（kg）",
-      desc: "t×W×L, 材質 → 重量",
-      tags: ["比重選択"],
+      desc: "t×W×L, 材質 → 重量 / 金額",
+      tags: ["比重選択", "金額"],
       inputs: [
         { key: "t", label: "厚み t (mm)", hint: "例: 12" },
         { key: "W", label: "幅 W (mm)", hint: "例: 200" },
         { key: "L", label: "長さ L (mm)", hint: "例: 1000" },
-        { key: "mat", type: "select", label: "材質", default: "SS", options: materialOptions() }
+        { key: "mat", type: "select", label: "材質", default: "SS", options: materialOptions() },
+        { key: "yenPerKg", label: "kg単価 (円/kg)", hint: "例: 200", default: yenPerKgDefault }
       ],
       result: { label: "重量", unit: "kg" },
       compute: (v) => {
         const rho = densityFromMaterial(v.mat);
         const volume_m3 = v.t * v.W * v.L * 1e-9;
         const density = rho * 1000;
-        return volume_m3 * density;
+        const kg = volume_m3 * density;
+
+        const yenPerKg = v.yenPerKg;
+        if (!Number.isFinite(yenPerKg) || yenPerKg < 0) throw new Error("kg単価は0以上で入力してください");
+        const cost = kg * yenPerKg;
+
+        return {
+          primary: { label: "重量", value: kg, unit: "kg" },
+          others: [{ label: "材料金額", value: cost, unit: "円" }]
+        };
       }
     },
 
+    // 丸棒
+    {
+      id: "w_roundbar",
+      group: "重量計算",
+      title: "丸棒重量（kg）",
+      desc: "φd, 長さL, 材質 → 重量 / 金額",
+      tags: ["比重選択", "金額"],
+      inputs: [
+        { key: "d", label: "直径 d (mm)", hint: "例: 50" },
+        { key: "L", label: "長さ L (mm)", hint: "例: 1000" },
+        { key: "mat", type: "select", label: "材質", default: "SS", options: materialOptions() },
+        { key: "yenPerKg", label: "kg単価 (円/kg)", hint: "例: 200", default: yenPerKgDefault }
+      ],
+      result: { label: "重量", unit: "kg" },
+      compute: (v) => {
+        const rho = densityFromMaterial(v.mat);
+        const volume_m3 = Math.PI * (v.d * v.d) / 4 * v.L * 1e-9;
+        const density = rho * 1000;
+        const kg = volume_m3 * density;
+
+        const yenPerKg = v.yenPerKg;
+        if (!Number.isFinite(yenPerKg) || yenPerKg < 0) throw new Error("kg単価は0以上で入力してください");
+        const cost = kg * yenPerKg;
+
+        return {
+          primary: { label: "重量", value: kg, unit: "kg" },
+          others: [{ label: "材料金額", value: cost, unit: "円" }]
+        };
+      }
+    },
+
+    // パイプ（★kg単価デフォルト350円）
     {
       id: "w_pipe_dual",
       group: "重量計算",
       title: "パイプ重量（板厚 or 内径）",
-      desc: "外径D, (板厚t or 内径Di), 長さL, 材質 → 重量",
-      tags: ["比重選択"],
+      desc: "外径D, (板厚t or 内径Di), 長さL, 材質 → 重量 / 金額",
+      tags: ["比重選択", "金額"],
       partial: true,
       inputs: [
         { key: "D", label: "外径 D (mm)", hint: "例: 60.5" },
         { key: "t", label: "板厚 t (mm) ※どちらか", hint: "例: 3.2（内径を入れるなら空欄）" },
         { key: "Di", label: "内径 Di (mm) ※どちらか", hint: "例: 54.1（板厚を入れるなら空欄）" },
         { key: "L", label: "長さ L (mm)", hint: "例: 1000" },
-        { key: "mat", type: "select", label: "材質", default: "SS", options: materialOptions() }
+        { key: "mat", type: "select", label: "材質", default: "SS", options: materialOptions() },
+        { key: "yenPerKg", label: "kg単価 (円/kg)", hint: "例: 350", default: yenPerKgPipeDefault }
       ],
       result: { label: "重量", unit: "kg" },
       compute: (v) => {
@@ -101,10 +129,19 @@ export function buildWeightTemplates(settings) {
         }
         if (!(Di > 0) || Di >= D) throw new Error("内径は 0 < Di < D が必要です");
 
-        const area_mm2 = Math.PI * (D*D - Di*Di) / 4;
+        const area_mm2 = Math.PI * (D * D - Di * Di) / 4;
         const volume_m3 = area_mm2 * L * 1e-9;
         const density = rho * 1000;
-        return volume_m3 * density;
+        const kg = volume_m3 * density;
+
+        const yenPerKg = v.yenPerKg;
+        if (!Number.isFinite(yenPerKg) || yenPerKg < 0) throw new Error("kg単価は0以上で入力してください");
+        const cost = kg * yenPerKg;
+
+        return {
+          primary: { label: "重量", value: kg, unit: "kg" },
+          others: [{ label: "材料金額", value: cost, unit: "円" }]
+        };
       }
     },
 
@@ -147,7 +184,7 @@ export function buildWeightTemplates(settings) {
       ],
       result: { label: "体積", unit: "mm³" },
       compute: (v) => {
-        const mm3 = Math.PI * (v.d*v.d) / 4 * v.L;
+        const mm3 = Math.PI * (v.d * v.d) / 4 * v.L;
         const cm3 = mm3 / 1000;
         const L = mm3 / 1_000_000;
         return {

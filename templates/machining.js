@@ -29,7 +29,7 @@ export function buildMachiningTemplates(settings) {
       compute: (v) => v.fz * v.z * v.rpm
     },
 
-    // ★追加：逆算（刃数・回転数・送り速度 → fz）
+    // ★追加：fz逆算
     {
       id: "feed_solve_fz_from_F_z_rpm",
       group: "加工関係",
@@ -56,20 +56,6 @@ export function buildMachiningTemplates(settings) {
 
         return F / (z * rpm);
       }
-    },
-
-    {
-      id: "time_from_F",
-      group: "加工関係",
-      title: "加工時間（送り）",
-      desc: "距離(mm) ÷ 送り速度(mm/min) → 分",
-      tags: ["概算"],
-      inputs: [
-        { key: "dist", label: "距離 (mm)", hint: "例: 300" },
-        { key: "F", label: "送り速度 (mm/min)", hint: "例: 180" }
-      ],
-      result: { label: "時間", unit: "min" },
-      compute: (v) => v.dist / v.F
     },
 
     {
