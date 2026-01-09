@@ -29,9 +29,6 @@ let currentTemplate = null;
 let currentResultText = "";
 let favOnly = false;
 
-/* work root (PC: workArea / Mobile: modal body) */
-let workRoot = null;
-
 /* =========================
    DOM
 ========================= */
@@ -56,82 +53,6 @@ const selDecimals = document.getElementById("decimalPlaces");
 const selDensity = document.getElementById("densityPreset");
 
 const btnFavOnly = document.getElementById("btnFavOnly");
-
-/* =========================
-   Mobile Work Modal (B案)
-========================= */
-let workModal = null;
-let workModalInner = null;
-let workModalBody = null;
-let workModalClose = null;
-
-function isMobileLayout() {
-  return window.matchMedia("(max-width: 900px)").matches;
-}
-
-function ensureWorkModal() {
-  if (workModal) return;
-
-  workModal = document.createElement("div");
-  workModal.id = "workModal";
-  workModal.className = "workmodal";
-  workModal.setAttribute("aria-hidden", "true");
-
-  workModalInner = document.createElement("div");
-  workModalInner.className = "workmodal-inner";
-
-  const head = document.createElement("div");
-  head.className = "workmodal-head";
-  head.innerHTML = `
-    <div class="workmodal-title">計算</div>
-    <button class="btn" id="workModalClose">閉じる</button>
-  `;
-
-  workModalBody = document.createElement("div");
-  workModalBody.className = "workmodal-body";
-
-  workModalInner.appendChild(head);
-  workModalInner.appendChild(workModalBody);
-  workModal.appendChild(workModalInner);
-  document.body.appendChild(workModal);
-
-  workModalClose = head.querySelector("#workModalClose");
-  workModalClose.addEventListener("click", closeWorkModal);
-
-  // 背景タップで閉じる
-  workModal.addEventListener("click", (e) => {
-    if (e.target === workModal) closeWorkModal();
-  });
-
-  // Escで閉じる（PCでも）
-  window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && workModal.classList.contains("open")) closeWorkModal();
-  });
-}
-
-function openWorkModal() {
-  ensureWorkModal();
-  workModal.classList.add("open");
-  workModal.setAttribute("aria-hidden", "false");
-  document.body.style.overflow = "hidden";
-}
-
-function closeWorkModal() {
-  if (!workModal) return;
-  workModal.classList.remove("open");
-  workModal.setAttribute("aria-hidden", "true");
-  document.body.style.overflow = "";
-  // workRootをPC側に戻す（安全）
-  workRoot = elWork;
-}
-
-function getWorkRootForRender() {
-  if (isMobileLayout()) {
-    ensureWorkModal();
-    return workModalBody;
-  }
-  return elWork;
-}
 
 /* =========================
    Favorites
@@ -221,13 +142,14 @@ function openTemplate(id) {
     return "";
   });
 
-  // ✅ B案：スマホならモーダル表示
-  if (isMobileLayout()) openWorkModal();
-
-  workRoot = getWorkRootForRender();
-  workRoot.innerHTML = renderWorkHtml(t, fields);
+  elWork.innerHTML = renderWorkHtml(t, fields);
   wireWorkEvents(t);
   computeAndUpdate(t);
+
+  // ✅ A案：スマホは選択後に計算エリアへスクロール
+  if (window.matchMedia("(max-width: 900px)").matches) {
+    elWork.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
 function renderWorkHtml(t, fieldValues) {
@@ -239,6 +161,7 @@ function renderWorkHtml(t, fieldValues) {
     const v = fieldValues[idx] ?? "";
     const key = escapeHtml(inp.key);
 
+    // select対応（材質など）
     if (inp.type === "select") {
       const opts = (inp.options || []).map(o => {
         const val = String(o.value);
@@ -296,7 +219,7 @@ function renderWorkHtml(t, fieldValues) {
 }
 
 function wireWorkEvents(t) {
-  const inputs = workRoot.querySelectorAll("[data-key]");
+  const inputs = elWork.querySelectorAll("[data-key]");
   inputs.forEach(inp => {
     inp.addEventListener("input", () => {
       saveLastInputs(t);
@@ -308,7 +231,7 @@ function wireWorkEvents(t) {
     });
   });
 
-  workRoot.querySelector("#btnSave").addEventListener("click", () => {
+  elWork.querySelector("#btnSave").addEventListener("click", () => {
     const payload = collectInputPayload(t);
     const computed = computeTemplate(t, payload.nums);
     const places = settings.decimalPlaces ?? 3;
@@ -334,9 +257,9 @@ function wireWorkEvents(t) {
     renderHistory();
   });
 
-  workRoot.querySelector("#btnCopyInline").addEventListener("click", copyResult);
+  elWork.querySelector("#btnCopyInline").addEventListener("click", copyResult);
 
-  workRoot.querySelector("#btnReset").addEventListener("click", () => {
+  elWork.querySelector("#btnReset").addEventListener("click", () => {
     const map = {};
     t.inputs.forEach(inp => map[inp.key] = (inp.default != null) ? String(inp.default) : "");
     lastInputs[t.id] = map;
@@ -344,20 +267,21 @@ function wireWorkEvents(t) {
     openTemplate(t.id);
   });
 
-  workRoot.querySelector("#btnFav").addEventListener("click", () => {
+  elWork.querySelector("#btnFav").addEventListener("click", () => {
     toggleFav(t.id);
-    workRoot.querySelector("#btnFav").textContent = favs.has(t.id) ? "★" : "☆";
+    elWork.querySelector("#btnFav").textContent = favs.has(t.id) ? "★" : "☆";
     renderList();
   });
 }
 
 function collectInputPayload(t) {
-  const inputs = workRoot.querySelectorAll("[data-key]");
+  const inputs = elWork.querySelectorAll("[data-key]");
   const raw = {};
   const nums = {};
 
   inputs.forEach(inp => {
     const key = inp.dataset.key;
+
     const valueStr = (inp.tagName === "SELECT")
       ? String(inp.value)
       : sanitizeNumber(inp.value);
@@ -370,7 +294,7 @@ function collectInputPayload(t) {
 }
 
 function saveLastInputs(t) {
-  const inputs = workRoot.querySelectorAll("[data-key]");
+  const inputs = elWork.querySelectorAll("[data-key]");
   const map = {};
   inputs.forEach(inp => map[inp.dataset.key] = inp.value);
   lastInputs[t.id] = map;
@@ -390,6 +314,12 @@ function normalizeComputeResult(raw, templateResult) {
     });
     const others = Array.isArray(raw.others) ? raw.others : [];
     for (const o of others) values.push({ label: o.label ?? "", value: o.value, unit: o.unit ?? "" });
+    return { values };
+  }
+  if (raw && typeof raw === "object" && typeof raw.value === "number") {
+    const values = [{ label: templateResult.label, value: raw.value, unit: templateResult.unit }];
+    const extras = Array.isArray(raw.extras) ? raw.extras : [];
+    for (const e of extras) values.push({ label: e.label ?? "", value: e.value, unit: e.unit ?? "" });
     return { values };
   }
   return { values: [{ label: templateResult.label, value: NaN, unit: templateResult.unit }] };
@@ -422,8 +352,8 @@ function computeAndUpdate(t) {
   const computed = computeTemplate(t, payload.nums);
 
   const places = settings.decimalPlaces ?? 3;
-  const multiEl = workRoot.querySelector("#resultMulti");
-  const errEl = workRoot.querySelector("#errText");
+  const multiEl = elWork.querySelector("#resultMulti");
+  const errEl = elWork.querySelector("#errText");
 
   const values = computed.values || [];
   const ok = values.length && values.every(v => Number.isFinite(v.value));
@@ -578,7 +508,7 @@ function toast(msg) {
     el.style.padding = "10px 12px";
     el.style.borderRadius = "12px";
     el.style.border = "1px solid rgba(255,255,255,.12)";
-    el.style.zIndex = "60";
+    el.style.zIndex = "50";
     el.style.fontSize = "13px";
     document.body.appendChild(el);
   }
@@ -631,17 +561,9 @@ btnFavOnly.addEventListener("click", () => {
 window.addEventListener("online", updateOfflineNote);
 window.addEventListener("offline", updateOfflineNote);
 
-// レイアウト切替時：モーダル開いてたら閉じる（事故防止）
-window.addEventListener("resize", () => {
-  if (!isMobileLayout() && workModal && workModal.classList.contains("open")) {
-    closeWorkModal();
-  }
-});
-
 /* =========================
    Boot
 ========================= */
-workRoot = elWork;
 renderList();
 updateOfflineNote();
 registerSW();
