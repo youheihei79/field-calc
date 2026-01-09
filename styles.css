@@ -65,7 +65,6 @@ html,body{
   max-height:calc(100vh - 140px);
 }
 
-/* ✅ 1行表示 */
 .card{
   border:1px solid var(--border);
   border-radius:14px;
@@ -83,7 +82,6 @@ html,body{
   justify-content:space-between;
   gap:8px;
 }
-
 .card-title-1{
   font-weight:700;
   font-size:13px;
@@ -92,7 +90,6 @@ html,body{
   overflow:hidden;
   text-overflow:ellipsis;
 }
-
 .card-right{
   display:flex;
   align-items:center;
@@ -250,6 +247,50 @@ html,body{
   padding:16px;
   width:min(420px,100%);
   margin:60px auto;
+}
+
+/* =========================
+   ✅ Work Modal (B案)
+========================= */
+.workmodal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.62);
+  display:none;
+  z-index:55;
+}
+.workmodal.open{ display:block; }
+
+.workmodal-inner{
+  position:absolute;
+  inset:10px;
+  background:#020617;
+  border:1px solid var(--border);
+  border-radius:18px;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+
+.workmodal-head{
+  padding:10px 12px;
+  border-bottom:1px solid var(--border);
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.workmodal-title{
+  font-weight:900;
+}
+.workmodal-body{
+  padding:12px;
+  overflow:auto;
+}
+
+/* スマホは上部に寄せて使いやすく */
+@media (max-width:900px){
+  .workmodal-inner{ inset:8px; }
+  .workmodal-body{ padding:12px; }
 }
 
 ::-webkit-scrollbar{ width:8px; }
