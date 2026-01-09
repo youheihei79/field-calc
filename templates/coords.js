@@ -28,6 +28,47 @@ const ANGLE_SVG = `
 </svg>
 `;
 
+/* J開先（半角α & R）図 */
+const JGROOVE_SVG = `
+<svg viewBox="0 0 700 240" xmlns="http://www.w3.org/2000/svg" aria-label="J groove tangent">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="rgba(229,231,235,.85)"/>
+    </marker>
+  </defs>
+
+  <!-- 上面 -->
+  <line x1="40" y1="170" x2="660" y2="170" stroke="rgba(229,231,235,.7)" stroke-width="3"/>
+
+  <!-- 中心線 -->
+  <line x1="350" y1="25" x2="350" y2="225" stroke="rgba(156,163,175,.6)" stroke-width="2" stroke-dasharray="6 6"/>
+
+  <!-- 斜面（左右） -->
+  <line x1="350" y1="170" x2="270" y2="40" stroke="rgba(229,231,235,.75)" stroke-width="3"/>
+  <line x1="350" y1="170" x2="430" y2="40" stroke="rgba(229,231,235,.75)" stroke-width="3"/>
+
+  <!-- Rの概念（円弧っぽい表示） -->
+  <path d="M350,170 Q330,155 320,130" fill="none" stroke="rgba(56,189,248,.9)" stroke-width="3"/>
+  <text x="305" y="120" fill="rgba(56,189,248,.95)" font-size="16" font-weight="700">R</text>
+
+  <!-- H（垂直） -->
+  <line x1="505" y1="170" x2="505" y2="95" stroke="rgba(229,231,235,.85)" stroke-width="3"
+        marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  <text x="520" y="135" fill="rgba(229,231,235,.9)" font-size="16" font-weight="700">H</text>
+
+  <!-- X（水平） -->
+  <line x1="350" y1="205" x2="450" y2="205" stroke="rgba(229,231,235,.85)" stroke-width="3"
+        marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  <text x="395" y="226" fill="rgba(229,231,235,.9)" font-size="16" font-weight="700">X</text>
+
+  <!-- α 表示（半角） -->
+  <path d="M350,170 A45,45 0 0 1 385,140" fill="none" stroke="rgba(229,231,235,.6)" stroke-width="2"/>
+  <text x="388" y="142" fill="rgba(229,231,235,.85)" font-size="16" font-weight="700">α</text>
+
+  <text x="40" y="30" fill="rgba(156,163,175,1)" font-size="14">入力は半角α（=θ/2）とR。出力：H（上面→接点）とX（中心線→接点）</text>
+</svg>
+`;
+
 function solveRightTriangle(v) {
   const a0 = v.a, b0 = v.b, c0 = v.c, th0 = v.theta; // theta deg
   const given = {
@@ -171,6 +212,51 @@ export function buildCoordTemplates(settings) {
         return {
           primary: { label: "X", value: x, unit: "mm" },
           others: [{ label: "Y", value: y, unit: "mm" }]
+        };
+      }
+    },
+
+    // ★追加：J開先（半角α=θ/2, R）→ 接点位置（H, X）
+    {
+      id: "j_groove_tangent_alpha_r",
+      group: "座標計算",
+      title: "J開先：半角αとR → 接点(H, X)",
+      desc: "半角α(=θ/2)とRから、上面→接点の垂直距離Hと中心線→接点の横距離Xを算出",
+      tags: ["J開先", "接線", "R", "角度"],
+      diagramSvg: JGROOVE_SVG,
+      inputs: [
+        { key: "alpha", label: "半角 α (=θ/2) (deg)", hint: "例: 30", default: 30 },
+        { key: "R", label: "R (mm)", hint: "例: 5", default: 5 }
+      ],
+      result: { label: "H（上面→接点）", unit: "mm" },
+      compute: (v) => {
+        const a = v.alpha;
+        const r = v.R;
+
+        if (!Number.isFinite(a) || !Number.isFinite(r)) throw new Error("数値を入力してください");
+        if (r <= 0) throw new Error("Rは0より大きくしてください");
+        if (a <= 0 || a >= 89.999) throw new Error("αは 0<α<90 で入力してください");
+
+        const rad = degToRad(a);
+        const s = Math.sin(rad);
+        const c = Math.cos(rad);
+        if (Math.abs(s) < 1e-12) throw new Error("αが小さすぎます");
+
+        // H: 上面から接点までの垂直距離（上下矢印）
+        const H = r * (c * c) / s;
+
+        // X: 中心線から接点までの水平距離
+        const X = r * c;
+
+        // L: 斜面に沿った距離（参考） = R*cotα
+        const L = r * (c / s);
+
+        return {
+          primary: { label: "H（上面→接点）", value: H, unit: "mm" },
+          others: [
+            { label: "X（中心線→接点）", value: X, unit: "mm" },
+            { label: "L（斜面距離）", value: L, unit: "mm" }
+          ]
         };
       }
     }
