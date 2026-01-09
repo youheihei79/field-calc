@@ -2,10 +2,18 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>（株）加古川製作所計算ツール</title>
 
-  <!-- favicon 404を止める（任意だけど入れておく） -->
+  <!-- iOSホーム画面アイコン（最優先） -->
+  <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+
+  <!-- PWA -->
+  <link rel="manifest" href="./manifest.webmanifest">
+  <meta name="theme-color" content="#020617">
+
+  <!-- favicon 404を止める（任意） -->
   <link rel="icon" href="data:,">
 
   <link rel="stylesheet" href="./styles.css" />
@@ -93,7 +101,6 @@
     </div>
   </div>
 
-  <!-- IMPORTANT: module -->
   <script type="module" src="./main.js"></script>
 </body>
 </html>
