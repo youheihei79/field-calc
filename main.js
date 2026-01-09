@@ -55,6 +55,11 @@ const selDensity = document.getElementById("densityPreset");
 const btnFavOnly = document.getElementById("btnFavOnly");
 
 /* =========================
+   Safety: if body got locked somewhere, unlock
+========================= */
+document.body.style.overflow = "";
+
+/* =========================
    Mobile helper: "一覧へ戻る" floating button
 ========================= */
 let backBtn = null;
@@ -66,7 +71,6 @@ function ensureBackBtn() {
   backBtn.textContent = "一覧へ";
   backBtn.title = "機能一覧へ戻る";
   backBtn.addEventListener("click", () => {
-    // サイドバー（検索欄）へ戻す
     const top = document.querySelector(".sidebar") || document.body;
     top.scrollIntoView({ behavior: "auto", block: "start" });
   });
@@ -129,14 +133,19 @@ function renderList() {
         </div>
       `;
 
-      // ✅ クリック座標で判定するのをやめて、星だけ個別にハンドリング（スマホ安定）
+      // 星は独立（スマホ安定）
       card.querySelector(".star").addEventListener("click", (e) => {
         e.stopPropagation();
         toggleFav(t.id);
         renderList();
       });
 
-      card.addEventListener("click", () => openTemplate(t.id));
+      // ✅ openTemplate前に blur（iOSのスクロール固着を減らす）
+      card.addEventListener("click", () => {
+        try { document.activeElement?.blur?.(); } catch {}
+        openTemplate(t.id);
+      });
+
       elList.appendChild(card);
     }
   }
@@ -165,8 +174,9 @@ function openTemplate(id) {
     wireWorkEvents(t);
     computeAndUpdate(t);
 
-    // ✅ フリーズ体感の元になりがちな smooth をやめる（即時移動）
+    // ✅ スマホは計算エリアへ移動（autoに固定）
     if (window.matchMedia("(max-width: 900px)").matches) {
+      try { document.activeElement?.blur?.(); } catch {}
       elWork.scrollIntoView({ behavior: "auto", block: "start" });
     }
   } catch (e) {

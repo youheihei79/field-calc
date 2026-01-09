@@ -60,9 +60,19 @@ html,body{
   cursor:pointer;
 }
 
+/* ✅ PCでは一覧を独立スクロール */
 .list{
   overflow:auto;
   max-height:calc(100vh - 140px);
+  -webkit-overflow-scrolling: touch; /* iOS慣性スクロール */
+}
+
+/* ✅ スマホでは独立スクロールをやめて “ページ全体でスクロール” にする */
+@media (max-width:900px){
+  .list{
+    overflow:visible;
+    max-height:none;
+  }
 }
 
 .card{
