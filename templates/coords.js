@@ -67,7 +67,6 @@ const JGROOVE_XY_SVG = `
   <text x="578" y="112" fill="rgba(229,231,235,.92)" font-size="18" font-weight="900">α</text>
   <text x="600" y="112" fill="rgba(156,163,175,1)" font-size="13">（=θ/2）</text>
 
-  <!-- ====== ここが修正：円弧を綺麗に ====== -->
   <!-- 円弧（下側のR溝） -->
   <!-- 中心を(420,210)、半径を80で固定して描く -->
   <!-- 円弧：左端(340,210) → 右端(500,210) の下側半円 -->
@@ -105,55 +104,93 @@ const JGROOVE_XY_SVG = `
 </svg>
 `;
 
-function solveRightTriangle(v) {
+/* =========================
+   直角三角形：2要素入力で全て算出（B案）
+========================= */
+function solveRightTriangle2(v) {
   const a0 = v.a, b0 = v.b, c0 = v.c, th0 = v.theta; // theta deg
+
   const given = {
     a: Number.isFinite(a0),
     b: Number.isFinite(b0),
     c: Number.isFinite(c0),
     theta: Number.isFinite(th0)
   };
-  const missing = Object.keys(given).filter(k => !given[k]);
-  if (missing.length !== 1) throw new Error("a,b,c,θ のうち3つを入力（1つだけ空欄）してください");
-
-  let a = a0, b = b0, c = c0, thetaDeg = th0;
-  const thRad = () => degToRad(thetaDeg);
-  const bad = (x) => !(Number.isFinite(x)) || x <= 0;
-
-  switch (missing[0]) {
-    case "a":
-      if (given.b && given.c) { if (bad(b)||bad(c)||c<=b) throw new Error("c>b が必要"); a = Math.sqrt(c*c - b*b); }
-      else if (given.c && given.theta) { if (bad(c)) throw new Error("cは正"); a = c * Math.cos(thRad()); }
-      else if (given.b && given.theta) { if (bad(b)) throw new Error("bは正"); a = b / Math.tan(thRad()); }
-      else throw new Error("a算出の組合せ不足（b+c / c+θ / b+θ）");
-      break;
-    case "b":
-      if (given.a && given.c) { if (bad(a)||bad(c)||c<=a) throw new Error("c>a が必要"); b = Math.sqrt(c*c - a*a); }
-      else if (given.c && given.theta) { if (bad(c)) throw new Error("cは正"); b = c * Math.sin(thRad()); }
-      else if (given.a && given.theta) { if (bad(a)) throw new Error("aは正"); b = a * Math.tan(thRad()); }
-      else throw new Error("b算出の組合せ不足（a+c / c+θ / a+θ）");
-      break;
-    case "c":
-      if (given.a && given.b) { if (bad(a)||bad(b)) throw new Error("a,bは正"); c = Math.sqrt(a*a + b*b); }
-      else if (given.a && given.theta) { if (bad(a)) throw new Error("aは正"); const cosv = Math.cos(thRad()); if (Math.abs(cosv)<1e-12) throw new Error("cosθが0に近い"); c = a / cosv; }
-      else if (given.b && given.theta) { if (bad(b)) throw new Error("bは正"); const sinv = Math.sin(thRad()); if (Math.abs(sinv)<1e-12) throw new Error("sinθが0に近い"); c = b / sinv; }
-      else throw new Error("c算出の組合せ不足（a+b / a+θ / b+θ）");
-      break;
-    case "theta":
-      if (given.a && given.b) { if (bad(a)||bad(b)) throw new Error("a,bは正"); thetaDeg = radToDeg(Math.atan2(b, a)); }
-      else if (given.a && given.c) { if (bad(a)||bad(c)||c<a) throw new Error("c>=a が必要"); thetaDeg = radToDeg(Math.acos(a / c)); }
-      else if (given.b && given.c) { if (bad(b)||bad(c)||c<b) throw new Error("c>=b が必要"); thetaDeg = radToDeg(Math.asin(b / c)); }
-      else throw new Error("θ算出の組合せ不足（a+b / a+c / b+c）");
-      break;
+  const keys = Object.keys(given);
+  const present = keys.filter(k => given[k]);
+  if (present.length !== 2) {
+    throw new Error("a,b,c,θ のうち「2つだけ」入力してください（B案）");
   }
 
-  if (!Number.isFinite(c) && Number.isFinite(a) && Number.isFinite(b)) c = Math.sqrt(a*a + b*b);
-  if (!Number.isFinite(a) && Number.isFinite(c) && Number.isFinite(thetaDeg)) a = c * Math.cos(degToRad(thetaDeg));
-  if (!Number.isFinite(b) && Number.isFinite(c) && Number.isFinite(thetaDeg)) b = c * Math.sin(degToRad(thetaDeg));
+  let a = a0, b = b0, c = c0, thetaDeg = th0;
 
-  if (![a,b,c,thetaDeg].every(Number.isFinite)) throw new Error("計算失敗");
-  if (a<=0 || b<=0 || c<=0) throw new Error("長さは正の値");
-  return { a,b,c,thetaDeg };
+  const badLen = (x) => !(Number.isFinite(x)) || x <= 0;
+  const badTheta = (x) => !(Number.isFinite(x)) || x <= 0 || x >= 90;
+
+  const thRad = () => degToRad(thetaDeg);
+
+  // ---- 2要素の組み合わせで分岐 ----
+  // a & b
+  if (given.a && given.b) {
+    if (badLen(a) || badLen(b)) throw new Error("a,bは正の値");
+    c = Math.sqrt(a * a + b * b);
+    thetaDeg = radToDeg(Math.atan2(b, a));
+  }
+
+  // a & c
+  else if (given.a && given.c) {
+    if (badLen(a) || badLen(c)) throw new Error("a,cは正の値");
+    if (c <= a) throw new Error("c>a が必要");
+    b = Math.sqrt(c * c - a * a);
+    thetaDeg = radToDeg(Math.acos(a / c));
+  }
+
+  // b & c
+  else if (given.b && given.c) {
+    if (badLen(b) || badLen(c)) throw new Error("b,cは正の値");
+    if (c <= b) throw new Error("c>b が必要");
+    a = Math.sqrt(c * c - b * b);
+    thetaDeg = radToDeg(Math.asin(b / c));
+  }
+
+  // a & theta
+  else if (given.a && given.theta) {
+    if (badLen(a)) throw new Error("aは正の値");
+    if (badTheta(thetaDeg)) throw new Error("θは 0<θ<90 で入力してください");
+    const cosv = Math.cos(thRad());
+    if (Math.abs(cosv) < 1e-12) throw new Error("cosθが0に近い");
+    b = a * Math.tan(thRad());
+    c = a / cosv;
+  }
+
+  // b & theta
+  else if (given.b && given.theta) {
+    if (badLen(b)) throw new Error("bは正の値");
+    if (badTheta(thetaDeg)) throw new Error("θは 0<θ<90 で入力してください");
+    const sinv = Math.sin(thRad());
+    if (Math.abs(sinv) < 1e-12) throw new Error("sinθが0に近い");
+    a = b / Math.tan(thRad());
+    c = b / sinv;
+  }
+
+  // c & theta
+  else if (given.c && given.theta) {
+    if (badLen(c)) throw new Error("cは正の値");
+    if (badTheta(thetaDeg)) throw new Error("θは 0<θ<90 で入力してください");
+    a = c * Math.cos(thRad());
+    b = c * Math.sin(thRad());
+  }
+
+  else {
+    // （thetaだけ or ありえない組合せ）
+    throw new Error("この組み合わせでは計算できません（例：θだけは不可）");
+  }
+
+  if (![a, b, c, thetaDeg].every(Number.isFinite)) throw new Error("計算失敗");
+  if (a <= 0 || b <= 0 || c <= 0) throw new Error("長さは正の値");
+  if (!(thetaDeg > 0 && thetaDeg < 90)) throw new Error("θは 0<θ<90 である必要があります");
+
+  return { a, b, c, thetaDeg };
 }
 
 export function buildCoordTemplates(settings) {
@@ -161,10 +198,15 @@ export function buildCoordTemplates(settings) {
     {
       id: "tri_right_auto",
       group: "座標計算",
-      title: "直角三角形：a,b,c,θ 自動計算",
-      desc: "a,b,c,θ のうち3つ入力 → 残りを計算（a=底辺, b=高さ, c=斜辺）",
+      title: "直角三角形：a,b,c,θ（2要素→自動計算）",
+      desc: "a,b,c,θ のうち「2つだけ」入力 → 残りを計算（a=底辺, b=高さ, c=斜辺）",
       tags: ["三角関数"],
       partial: true,
+
+      // ★B案：main.js のオート制御対象
+      maxInputs: 2,
+      autoCompute: true,
+
       diagramSvg: TRI_SVG,
       inputs: [
         { key: "a", label: "a（底辺）(mm)", hint: "例: 100" },
@@ -174,7 +216,7 @@ export function buildCoordTemplates(settings) {
       ],
       result: { label: "a", unit: "mm" },
       compute: (v) => {
-        const r = solveRightTriangle(v);
+        const r = solveRightTriangle2(v);
         return {
           primary: { label: "a", value: r.a, unit: "mm" },
           others: [
@@ -202,7 +244,7 @@ export function buildCoordTemplates(settings) {
       compute: (v) => {
         const dx = v.x2 - v.x1;
         const dy = v.y2 - v.y1;
-        return Math.sqrt(dx*dx + dy*dy);
+        return Math.sqrt(dx * dx + dy * dy);
       }
     },
 
@@ -266,8 +308,7 @@ export function buildCoordTemplates(settings) {
       ],
       result: { label: "X（接点）", unit: "mm" },
       compute: (v) => {
-        // ※ここは「計算が合っている」前提で、あなたの現行ロジックを維持したいので触りません。
-        // もし現行が別式なら、ここをあなたの手元の式に合わせてください（図の修正が主目的）。
+        // ※ここは「計算が合っている」前提で、あなたの現行ロジックを維持
         const aDeg = v.alpha;
         const R = v.R;
         const RG = v.RG;
@@ -284,7 +325,6 @@ export function buildCoordTemplates(settings) {
         const c = Math.cos(a);
         if (Math.abs(s) < 1e-12) throw new Error("αが小さすぎます");
 
-        // （あなたの既存式を維持している想定）
         const Cy = -(R + RG * c) / s;
         const X = (-RG) - R * c;
         const Y = Cy + R * s;

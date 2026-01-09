@@ -172,7 +172,9 @@ function openTemplate(id) {
 
     elWork.innerHTML = renderWorkHtml(t, fields);
     wireWorkEvents(t);
-    computeAndUpdate(t);
+
+    // ★B案：2入力オート計算系なら制御しつつ更新
+    computeAndUpdateAuto(t);
 
     // ✅ スマホは計算エリアへ移動（autoに固定）
     if (window.matchMedia("(max-width: 900px)").matches) {
@@ -253,16 +255,25 @@ function wireWorkEvents(t) {
   inputs.forEach(inp => {
     inp.addEventListener("input", () => {
       saveLastInputs(t);
-      computeAndUpdate(t);
+      computeAndUpdateAuto(t);
     }, { passive: true });
+
     inp.addEventListener("change", () => {
       saveLastInputs(t);
-      computeAndUpdate(t);
+      computeAndUpdateAuto(t);
     }, { passive: true });
   });
 
   elWork.querySelector("#btnSave").addEventListener("click", () => {
     const payload = collectInputPayload(t);
+
+    // ★オート系は maxInputs 未満なら保存できない
+    if (isAutoComputeTemplate(t)) {
+      const filled = countFilledNumericInputs(t, payload.nums);
+      const max = getMaxInputs(t);
+      if (filled < max) return toast(`あと${max - filled}項目入力してください`);
+    }
+
     const computed = computeTemplate(t, payload.nums);
     const places = settings.decimalPlaces ?? 3;
 
@@ -330,6 +341,71 @@ function saveLastInputs(t) {
   LS.set(LASTINPUT_KEY, lastInputs);
 }
 
+/* =========================
+   AutoCompute + MaxInputs (B案)
+========================= */
+function isAutoComputeTemplate(t) {
+  return !!t && !!t.autoCompute && Number.isFinite(getMaxInputs(t));
+}
+function getMaxInputs(t) {
+  const n = (t && Number.isFinite(t.maxInputs)) ? t.maxInputs : NaN;
+  return n;
+}
+function countFilledNumericInputs(t, nums) {
+  // select は数値扱いしない（材質など）
+  let count = 0;
+  for (const inp of t.inputs) {
+    if (inp.type === "select") continue;
+    if (Number.isFinite(nums[inp.key])) count++;
+  }
+  return count;
+}
+function applyInputLimiter(t, nums) {
+  // filled >= max の時、未入力の数値inputだけ disable にする
+  const max = getMaxInputs(t);
+  if (!Number.isFinite(max)) return;
+
+  const filled = countFilledNumericInputs(t, nums);
+  const shouldLimit = filled >= max;
+
+  for (const inp of t.inputs) {
+    if (inp.type === "select") continue;
+
+    const el = elWork.querySelector(`[data-key="${CSS.escape(inp.key)}"]`);
+    if (!el) continue;
+
+    const isFilled = Number.isFinite(nums[inp.key]);
+    const disable = shouldLimit && !isFilled;
+
+    el.disabled = disable;
+    el.classList.toggle("disabled", disable);
+  }
+
+  // 既に3つ以上入っている（過去の保存や貼り付け）場合は警告表示
+  if (filled > max) {
+    const errEl = elWork.querySelector("#errText");
+    if (errEl) errEl.textContent = `入力は ${max}項目までです（余分な入力を消してください）`;
+  }
+}
+function renderWaitingState(t, filled, max) {
+  const multiEl = elWork.querySelector("#resultMulti");
+  const errEl = elWork.querySelector("#errText");
+
+  multiEl.innerHTML = `
+    <div class="result-box">
+      <div class="result-label">${escapeHtml(t.result.label)}</div>
+      <div class="result-value">- <span class="unit">${escapeHtml(t.result.unit)}</span></div>
+    </div>
+  `;
+
+  const need = Math.max(0, max - filled);
+  errEl.textContent = need > 0 ? `あと${need}項目入力してください（合計${max}つ）` : "";
+
+  currentResultText = "";
+  btnCopy.disabled = true;
+  btnShare.disabled = true;
+}
+
 function normalizeComputeResult(raw, templateResult) {
   if (typeof raw === "number") {
     return { values: [{ label: templateResult.label, value: raw, unit: templateResult.unit }] };
@@ -374,6 +450,29 @@ function computeTemplate(t, nums) {
     const msg = e?.message || "計算エラー";
     return { values: [{ label: t.result.label, value: NaN, unit: t.result.unit }], error: msg };
   }
+}
+
+function computeAndUpdateAuto(t) {
+  const payload = collectInputPayload(t);
+
+  if (isAutoComputeTemplate(t)) {
+    const max = getMaxInputs(t);
+    const filled = countFilledNumericInputs(t, payload.nums);
+
+    // 入力制限（2つ埋まったら残りdisable）
+    applyInputLimiter(t, payload.nums);
+
+    // 2つ揃うまではエラーを出さず待つ（B案）
+    if (filled < max) {
+      renderWaitingState(t, filled, max);
+      return;
+    }
+
+    // ちょうど max の時だけ計算
+    // （filled>max は applyInputLimiter で警告出しつつ computeTemplate に任せる）
+  }
+
+  computeAndUpdate(t);
 }
 
 function computeAndUpdate(t) {
@@ -614,6 +713,7 @@ updateBackBtnVisibility();
     @media (max-width:520px){ .result-multi{grid-template-columns:1fr;} }
     .diagram{margin:10px 0 4px; padding:10px; border:1px solid var(--border); border-radius:16px; background:rgba(2,6,23,.35);}
     .diagram svg{width:100%; height:auto; display:block;}
+    input.disabled{opacity:.55;}
   `;
   const style = document.createElement("style");
   style.textContent = css;
