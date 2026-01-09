@@ -55,6 +55,30 @@ const selDensity = document.getElementById("densityPreset");
 const btnFavOnly = document.getElementById("btnFavOnly");
 
 /* =========================
+   Mobile helper: "一覧へ戻る" floating button
+========================= */
+let backBtn = null;
+function ensureBackBtn() {
+  if (backBtn) return;
+  backBtn = document.createElement("button");
+  backBtn.id = "btnBackToList";
+  backBtn.className = "fab-back";
+  backBtn.textContent = "一覧へ";
+  backBtn.title = "機能一覧へ戻る";
+  backBtn.addEventListener("click", () => {
+    // サイドバー（検索欄）へ戻す
+    const top = document.querySelector(".sidebar") || document.body;
+    top.scrollIntoView({ behavior: "auto", block: "start" });
+  });
+  document.body.appendChild(backBtn);
+}
+function updateBackBtnVisibility() {
+  const mobile = window.matchMedia("(max-width: 900px)").matches;
+  ensureBackBtn();
+  backBtn.style.display = mobile ? "block" : "none";
+}
+
+/* =========================
    Favorites
 ========================= */
 function toggleFav(id) {
@@ -100,25 +124,19 @@ function renderList() {
         <div class="card-row">
           <div class="card-title-1">${escapeHtml(t.title)}</div>
           <div class="card-right">
-            <span class="star">${favs.has(t.id) ? "★" : "☆"}</span>
+            <span class="star" role="button" aria-label="favorite">${favs.has(t.id) ? "★" : "☆"}</span>
           </div>
         </div>
       `;
 
-      card.addEventListener("click", (e) => {
-        const starEl = card.querySelector(".star");
-        const rect = starEl.getBoundingClientRect();
-        const x = e.clientX, y = e.clientY;
-        const isStar = x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
-
-        if (isStar) {
-          toggleFav(t.id);
-          renderList();
-          return;
-        }
-        openTemplate(t.id);
+      // ✅ クリック座標で判定するのをやめて、星だけ個別にハンドリング（スマホ安定）
+      card.querySelector(".star").addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleFav(t.id);
+        renderList();
       });
 
+      card.addEventListener("click", () => openTemplate(t.id));
       elList.appendChild(card);
     }
   }
@@ -130,38 +148,40 @@ function renderList() {
    Work area
 ========================= */
 function openTemplate(id) {
-  const t = templates.find(x => x.id === id);
-  if (!t) return;
-  currentTemplate = t;
+  try {
+    const t = templates.find(x => x.id === id);
+    if (!t) return;
+    currentTemplate = t;
 
-  const saved = lastInputs[t.id] || {};
-  const fields = t.inputs.map(inp => {
-    const vSaved = saved[inp.key];
-    if (vSaved != null && vSaved !== "") return vSaved;
-    if (inp.default != null) return String(inp.default);
-    return "";
-  });
+    const saved = lastInputs[t.id] || {};
+    const fields = t.inputs.map(inp => {
+      const vSaved = saved[inp.key];
+      if (vSaved != null && vSaved !== "") return vSaved;
+      if (inp.default != null) return String(inp.default);
+      return "";
+    });
 
-  elWork.innerHTML = renderWorkHtml(t, fields);
-  wireWorkEvents(t);
-  computeAndUpdate(t);
+    elWork.innerHTML = renderWorkHtml(t, fields);
+    wireWorkEvents(t);
+    computeAndUpdate(t);
 
-  // ✅ A案：スマホは選択後に計算エリアへスクロール
-  if (window.matchMedia("(max-width: 900px)").matches) {
-    elWork.scrollIntoView({ behavior: "smooth", block: "start" });
+    // ✅ フリーズ体感の元になりがちな smooth をやめる（即時移動）
+    if (window.matchMedia("(max-width: 900px)").matches) {
+      elWork.scrollIntoView({ behavior: "auto", block: "start" });
+    }
+  } catch (e) {
+    console.error(e);
+    toast("画面の描画でエラー。再読み込みしてください。");
   }
 }
 
 function renderWorkHtml(t, fieldValues) {
-  const diagram = t.diagramSvg
-    ? `<div class="diagram">${t.diagramSvg}</div>`
-    : "";
+  const diagram = t.diagramSvg ? `<div class="diagram">${t.diagramSvg}</div>` : "";
 
   const inputsHtml = t.inputs.map((inp, idx) => {
     const v = fieldValues[idx] ?? "";
     const key = escapeHtml(inp.key);
 
-    // select対応（材質など）
     if (inp.type === "select") {
       const opts = (inp.options || []).map(o => {
         const val = String(o.value);
@@ -224,11 +244,11 @@ function wireWorkEvents(t) {
     inp.addEventListener("input", () => {
       saveLastInputs(t);
       computeAndUpdate(t);
-    });
+    }, { passive: true });
     inp.addEventListener("change", () => {
       saveLastInputs(t);
       computeAndUpdate(t);
-    });
+    }, { passive: true });
   });
 
   elWork.querySelector("#btnSave").addEventListener("click", () => {
@@ -281,7 +301,6 @@ function collectInputPayload(t) {
 
   inputs.forEach(inp => {
     const key = inp.dataset.key;
-
     const valueStr = (inp.tagName === "SELECT")
       ? String(inp.value)
       : sanitizeNumber(inp.value);
@@ -561,6 +580,8 @@ btnFavOnly.addEventListener("click", () => {
 window.addEventListener("online", updateOfflineNote);
 window.addEventListener("offline", updateOfflineNote);
 
+window.addEventListener("resize", updateBackBtnVisibility);
+
 /* =========================
    Boot
 ========================= */
@@ -568,6 +589,7 @@ renderList();
 updateOfflineNote();
 registerSW();
 renderHistory();
+updateBackBtnVisibility();
 
 /* =========================
    CSS inject (multi-result + diagram)

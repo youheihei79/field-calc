@@ -251,3 +251,20 @@ html,body{
 
 ::-webkit-scrollbar{ width:8px; }
 ::-webkit-scrollbar-thumb{ background:#1f2937; border-radius:8px; }
+
+/* ✅ スマホ：一覧へ戻る固定ボタン */
+.fab-back{
+  position:fixed;
+  right:12px;
+  bottom:18px;
+  z-index:60;
+  padding:12px 14px;
+  border-radius:999px;
+  border:1px solid var(--border);
+  background:rgba(2,6,23,.9);
+  color:var(--text);
+  cursor:pointer;
+  box-shadow:0 10px 22px rgba(0,0,0,.35);
+  display:none; /* JSでスマホ時だけ表示 */
+}
+.fab-back:hover{ border-color:var(--accent); }
