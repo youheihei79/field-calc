@@ -43,9 +43,10 @@ export function buildMachiningTemplates(settings) {
       compute: (v) => v.dist / v.F
     },
 
+    // ★カテゴリを「座標計算」に変更
     {
       id: "circumference_arc",
-      group: "加工関係",
+      group: "座標計算",
       title: "円周 / 弧長（角度）",
       desc: "円周=πD、弧長=円周×(角度/360)",
       tags: ["展開"],
