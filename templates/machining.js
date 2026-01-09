@@ -29,6 +29,35 @@ export function buildMachiningTemplates(settings) {
       compute: (v) => v.fz * v.z * v.rpm
     },
 
+    // ★追加：逆算（刃数・回転数・送り速度 → fz）
+    {
+      id: "feed_solve_fz_from_F_z_rpm",
+      group: "加工関係",
+      title: "fz逆算（送り速度÷刃数÷rpm）",
+      desc: "fz(mm/刃) = F(mm/min) ÷ (z × rpm)",
+      tags: ["ミル", "逆算"],
+      inputs: [
+        { key: "z", label: "刃数 z", hint: "例: 4" },
+        { key: "rpm", label: "回転数 (rpm)", hint: "例: 1200" },
+        { key: "F", label: "送り速度 F (mm/min)", hint: "例: 384" }
+      ],
+      result: { label: "fz", unit: "mm/刃" },
+      compute: (v) => {
+        const z = v.z;
+        const rpm = v.rpm;
+        const F = v.F;
+
+        if (!Number.isFinite(z) || !Number.isFinite(rpm) || !Number.isFinite(F)) {
+          throw new Error("数値を入力してください");
+        }
+        if (z <= 0) throw new Error("刃数 z は 0 より大きくしてください");
+        if (rpm <= 0) throw new Error("回転数 rpm は 0 より大きくしてください");
+        if (F < 0) throw new Error("送り速度 F は 0 以上で入力してください");
+
+        return F / (z * rpm);
+      }
+    },
+
     {
       id: "time_from_F",
       group: "加工関係",
@@ -43,7 +72,6 @@ export function buildMachiningTemplates(settings) {
       compute: (v) => v.dist / v.F
     },
 
-    // ★カテゴリを「座標計算」に変更
     {
       id: "circumference_arc",
       group: "座標計算",
